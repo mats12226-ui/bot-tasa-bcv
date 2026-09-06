@@ -4,6 +4,24 @@ import urllib.request
 import telebot
 from dotenv import load_dotenv
 
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+# Servidor web falso para engañar a Render y mantener el bot vivo gratis
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot activo 24/7")
+
+def run_http_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
+    server.serve_forever()
+
+# Iniciar servidor web en segundo plano
+threading.Thread(target=run_http_server, daemon=True).start()
+
 
 load_dotenv()
 
