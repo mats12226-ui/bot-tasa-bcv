@@ -1,4 +1,5 @@
 import os
+from bs4 import BeautifulSoup
 import json
 import urllib.request
 import telebot
@@ -39,31 +40,46 @@ else:
 if not TOKEN:
     raise ValueError("⚠️ No se encontró TELEGRAM_TOKEN en el archivo .env")
 
-def obtener_tasas():
-    url_dolares = "https://ve.dolarapi.com/v1/dolares/oficial"
-    url_euros = "https://ve.dolarapi.com/v1/euros/oficial"
-
-    headers = {'User-Agent': 'Mozilla/5.0'}
-
-    tasa_usd = None
-    tasa_eur = None
-
+def obtener_tasa_bcv_directo():
+    """Consulta directamente la página oficial del BCV."""
+    url = "https://www.bcv.org.ve/"
     try:
-        req_usd = urllib.request.Request(url_dolares, headers=headers)
-        with urllib.request.urlopen(req_usd) as res:
-            data_usd = json.loads(res.read().decode())
-            tasa_usd = data_usd.get('promedio')
+        req = urllib.request.Request(
+            url,
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        )
+        html = urllib.request.urlopen(req, timeout=5).read()
+        soup = BeautifulSoup(html, 'html_parser')
 
-        req_eur = urllib.request.Request(url_euros, headers=headers)
-        with urllib.request.urlopen(req_eur) as res:
-            data_eur = json.loads(res.read().decode())
-            tasa_eur = data_eur.get('promedio')
-
+        div_dolar = soup.find('div', id='dolar')
+        tasa_usd = float(div_dolar.find('strong').text.strip().replace(',', '.'))
+        
+        div_euro = soup.find('div', id='euro')
+        tasa_eur = float(div_euro.find('strong').text.strip().replace(',', '.'))
+        
         return tasa_usd, tasa_eur
-
     except Exception as e:
-        print(f"Error al obtener tasas desde la API: {e}")
+        print(f"Error al obtener datos directo del BCV: {e}")
         return None, None
+
+def obtener_tasas():
+    """Intenta obtener las tasas de la API y si falla o se retrasa, consulta el BCV."""
+    url = "https://ve.dolarapi.com/v1/dolares/oficial"
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=4) as response:
+            data = json.loads(response.read().decode())
+            tasa_usd = float(data.get("promedio", 0))
+            
+            _, tasa_eur = obtener_tasa_bcv_directo()
+            if tasa_usd > 0 and tasa_eur:
+                return tasa_usd, tasa_eur
+    except Exception as e:
+        print(f"Error con dolarapi: {e}. Intentando lectura directa del BCV...")
+    
+    return obtener_tasa_bcv_directo()
+
+
 
 
 @bot.message_handler(commands=['start', 'help'])
@@ -83,7 +99,7 @@ def enviar_bienvenida(message):
 @bot.message_handler(func=lambda message: True)
 def responder_usuario(message):
     texto_usuario = message.text.strip().lower()
-    tasa_usd, tasa_eur = obtener_tasas()
+    tasa_usd, tasa_eur = obtener_tasa_bcv_directo()
 
     if not tasa_usd or not tasa_eur:
         bot.reply_to(message, "⚠️ No se pudieron obtener las tasas del BCV en este momento.")
