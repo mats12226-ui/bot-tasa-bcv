@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# Servidor web falso para engañar a Render y mantener el bot vivo gratis
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -19,7 +18,6 @@ def run_http_server():
     server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
-# Iniciar servidor web en segundo plano
 threading.Thread(target=run_http_server, daemon=True).start()
 
 
