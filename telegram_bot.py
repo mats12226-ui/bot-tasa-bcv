@@ -3,7 +3,6 @@ import json
 import urllib.request
 import telebot
 from dotenv import load_dotenv
-
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -25,7 +24,11 @@ load_dotenv()
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 bot = telebot.TeleBot(TOKEN)
-print(f"Token detectado: {TOKEN}")
+
+if TOKEN:
+    print("✅ TOKEN cargado correctamente.")
+else:
+    raise ValueError("⚠️ No se encontró TELEGRAM_TOKEN en las variables de entorno.")
 
 if not TOKEN:
     raise ValueError("⚠️ No se encontró TELEGRAM_TOKEN en el archivo .env")
