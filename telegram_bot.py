@@ -152,4 +152,4 @@ def responder_usuario(message):
 
 
 print("🚀 Bot de Telegram en ejecución...")
-bot.infinity_polling()
+bot.infinity_polling(skip_pending=True)
