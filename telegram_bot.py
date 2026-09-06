@@ -6,6 +6,7 @@ import telebot
 from dotenv import load_dotenv
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
+import ssl
 
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -40,26 +41,33 @@ else:
 if not TOKEN:
     raise ValueError("⚠️ No se encontró TELEGRAM_TOKEN en el archivo .env")
 
-def obtener_tasa_bcv_directo():
-    """Consulta directamente la página oficial del BCV."""
+def obtener_tasas_bcv_directo():
+    """Consulta directamente la página oficial del BCV ignorando validación SSL."""
     url = "https://www.bcv.org.ve/"
     try:
+        # Ignorar errores de certificado SSL de la pagina del BCV
+        contexto_ssl = ssl.create_default_context()
+        contexto_ssl.check_hostname = False
+        contexto_ssl.verify_mode = ssl.CERT_NONE
+
         req = urllib.request.Request(
-            url,
+            url, 
             headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         )
-        html = urllib.request.urlopen(req, timeout=5).read()
-        soup = BeautifulSoup(html, 'html_parser')
-
+        html = urllib.request.urlopen(req, context=contexto_ssl, timeout=8).read()
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        # Extraer Dólar
         div_dolar = soup.find('div', id='dolar')
         tasa_usd = float(div_dolar.find('strong').text.strip().replace(',', '.'))
         
+        # Extraer Euro
         div_euro = soup.find('div', id='euro')
         tasa_eur = float(div_euro.find('strong').text.strip().replace(',', '.'))
         
         return tasa_usd, tasa_eur
     except Exception as e:
-        print(f"Error al obtener datos directo del BCV: {e}")
+        print(f"Error extrayendo datos directos del BCV: {e}")
         return None, None
 
 def obtener_tasas():
@@ -71,13 +79,13 @@ def obtener_tasas():
             data = json.loads(response.read().decode())
             tasa_usd = float(data.get("promedio", 0))
             
-            _, tasa_eur = obtener_tasa_bcv_directo()
+            _, tasa_eur = obtener_tasas_bcv_directo()
             if tasa_usd > 0 and tasa_eur:
                 return tasa_usd, tasa_eur
     except Exception as e:
         print(f"Error con dolarapi: {e}. Intentando lectura directa del BCV...")
     
-    return obtener_tasa_bcv_directo()
+    return obtener_tasas_bcv_directo()
 
 
 
@@ -99,7 +107,7 @@ def enviar_bienvenida(message):
 @bot.message_handler(func=lambda message: True)
 def responder_usuario(message):
     texto_usuario = message.text.strip().lower()
-    tasa_usd, tasa_eur = obtener_tasa_bcv_directo()
+    tasa_usd, tasa_eur = obtener_tasas_bcv_directo()
 
     if not tasa_usd or not tasa_eur:
         bot.reply_to(message, "⚠️ No se pudieron obtener las tasas del BCV en este momento.")
