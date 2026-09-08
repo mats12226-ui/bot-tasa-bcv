@@ -75,6 +75,39 @@ def registrar_comandos_sugeridos():
     except Exception as e:
         print(f"No se pudo establecer menú de admin: {e}")
 
+
+def obtener_info_ip():
+    """Consulta una API pública de geolocalización para obtener la IP y datos del servidor."""
+    try:
+        url = "http://ip-api.com/json/?fields=status,message,country,city,regionName,isp,query"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        response = urllib.request.urlopen(req, timeout=5)
+        data = json.loads(response.read().decode('utf-8'))
+
+        if data.get("status") == "success":
+            return (
+                f"🌐 *INFORMACIÓN DEL SERVIDOR*\n\n"
+                f"• *IP Pública:* `{data.get('query')}`\n"
+                f"• *País:* {data.get('country')}\n"
+                f"• *Ciudad/Región:* {data.get('city')}, {data.get('regionName')}\n"
+                f"• *Proveedor (ISP):* {data.get('isp')}"
+            )
+        else:
+            return "⚠️ No se pudo obtener la geolocalización de la IP."
+    except Exception as e:
+        return f"❌ Error al consultar la geolocalización: {e}"
+
+@bot.message_handler(commands=['ip', 'serverinfo'])
+def cmd_obtener_ip(message):
+    if message.from_user.id != MI_TELEGRAM_ID:
+        bot.reply_to(message, "⚠️ No tienes autorización para ejecutar este comando.")
+        return
+
+    bot.reply_to(message, "🔍 Obteniendo datos de red del servidor...")
+    info_red = obtener_info_ip()
+    bot.reply_to(message, info_red, parse_mode="Markdown")
+
+
 @bot.message_handler(commands=['darvip', 'quitarvip'])
 def cmd_gestionar_vip(message):
     # 1. Verificar que solo el administrador use el comando
