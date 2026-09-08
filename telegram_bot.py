@@ -310,7 +310,7 @@ def enviar_bienvenida(message):
     texto = (
         "🇻🇪 *¡Bienvenido al Bot de Tasas BCV!*\n\n"
         "• Escribe *tasa* para consultar el Dólar y Euro oficial.\n"
-        "• Usa /planes o /vip para conocer los beneficios de la *Suscripción VIP*.\n\n"
+        "• Usa /vip para conocer los beneficios de la *Suscripción VIP*.\n\n"
         "📌 *Ejemplos de conversión rápida:*\n"
         "• `50 usd` ➔ Convierte 50 Dólares a Bolívares.\n"
         "• `50 eur` ➔ Convierte 50 Euros a Bolívares.\n"
@@ -559,6 +559,15 @@ def responder_usuario(message):
             bot.reply_to(message, respuesta, parse_mode="Markdown")
         except ValueError:
             bot.reply_to(message, "Escribe *tasa*, un número (ej: `50`), o especifica la moneda (ej: `50 usd`, `20 eur`, `1000 bs`).")
+
+comandos_actualizados = [
+    BotCommand("start", "Iniciar el bot y ver menú principal"),
+    BotCommand("vip", "Ver estado de tu suscripción VIP"),
+    BotCommand("help", "Instrucciones de uso")
+]
+
+# Aplicamos los comandos actualizados
+bot.set_my_commands(comandos_actualizados)
 
 print("🚀 Bot de Telegram en ejecución...")
 bot.infinity_polling(skip_pending=True)
