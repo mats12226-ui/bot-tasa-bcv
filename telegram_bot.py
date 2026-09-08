@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand, BotCommandScopeChat
-import re
+from vip_manager import agregar_vip, remover_vip, es_vip
 
 from database import (
     init_db, 
@@ -77,7 +77,6 @@ def registrar_comandos_sugeridos():
 
 
 def obtener_info_ip():
-    """Consulta una API pública de geolocalización para obtener la IP y datos del servidor."""
     try:
         url = "http://ip-api.com/json/?fields=status,message,country,city,regionName,isp,query"
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -110,12 +109,10 @@ def cmd_obtener_ip(message):
 
 @bot.message_handler(commands=['darvip', 'quitarvip'])
 def cmd_gestionar_vip(message):
-    # 1. Verificar que solo el administrador use el comando
     if message.from_user.id != MI_TELEGRAM_ID:
         bot.reply_to(message, "⚠️ No tienes autorización para ejecutar este comando.")
         return
 
-    # 2. Validar que se haya pasado un argumento (ID o @username)
     partes = message.text.split(maxsplit=1)
     if len(partes) < 2:
         bot.reply_to(
@@ -127,38 +124,32 @@ def cmd_gestionar_vip(message):
 
     target = partes[1].strip()
     accion = message.text.split()[0].replace("/", "").lower()
-    es_vip = 1 if accion == "darvip" else 0
 
-    # 3. Determinar el ID del usuario objetivo
     if target.isdigit():
         target_id = int(target)
     else:
         target_id = obtener_id_por_username(target)
         if not target_id:
-            bot.reply_to(
-                message, 
-                f"❌ No se encontró al usuario `{target}` en la base de datos.\n\n"
-                "📌 *Causas posibles:*\n"
-                "1. El usuario nunca ha iniciado el bot con `/start`.\n"
-                "2. El usuario no tiene un `@username` público en Telegram.", 
-                parse_mode="Markdown"
-            )
+            bot.reply_to(message, f"❌ No se encontró al usuario `{target}` en la base de datos.", parse_mode="Markdown")
             return
 
-    # 4. Actualizar estado en la Base de Datos
-    activar_premium(target_id, es_vip=es_vip)
+    if accion == "darvip":
+        agregar_vip(target_id)
+        es_vip_num = 1
+        estado_texto = "activado"
+    else:
+        remover_vip(target_id)
+        es_vip_num = 0
+        estado_texto = "desactivado"
 
-    # 5. Notificar confirmación al Administrador
-    estado_texto = "activado" if es_vip == 1 else "desactivado"
     bot.reply_to(
         message, 
-        f"✅ Acceso VIP *{estado_texto}* para el usuario (ID: `{target_id}`).", 
+        f"✅ Acceso VIP *{estado_texto}* para el usuario con ID `{target_id}`.", 
         parse_mode="Markdown"
     )
-    
-    # 6. Actualizar la lista de comandos del usuario en su interfaz
+
     try:
-        if es_vip == 1:
+        if es_vip_num == 1:
             comandos_vip = [
                 BotCommand("start", "Menú principal"),
                 BotCommand("tasa", "Consultar la tasa del Dólar y Euro BCV"),
@@ -179,9 +170,8 @@ def cmd_gestionar_vip(message):
     except Exception as e:
         print(f"No se pudieron actualizar los comandos personalizados para {target_id}: {e}")
 
-    # 7. Notificar al usuario objetivo
     try:
-        msg = "🎉 *¡Tu suscripción VIP ha sido activada!* Ya puedes disfrutar de alertas automáticas y calculadora con impuestos." if es_vip == 1 else "🔴 Tu acceso VIP ha finalizado."
+        msg = "🎉 *¡Tu suscripción VIP ha sido activada!* Ya puedes disfrutar de alertas automáticas y calculadora con impuestos." if es_vip_num == 1 else "🔴 Tu acceso VIP ha finalizado."
         bot.send_message(target_id, msg, parse_mode="Markdown")
     except Exception as e:
         print(f"No se pudo notificar al usuario {target_id} vía chat privado: {e}")
@@ -269,7 +259,6 @@ def procesar_calculadora(texto, tasa_bcv_usd, tasa_bcv_eur):
     if incluye_iva:
         monto_con_impuestos *= 1.16
 
-    # Calcular conversiones según la moneda ingresada
     if moneda in ["usd"]:
         monto_bs = monto_con_impuestos * tasa_bcv_usd
         respuesta = (
@@ -487,10 +476,10 @@ def responder_usuario(message):
         bot.reply_to(message, respuesta, parse_mode="Markdown")
 
     elif "usd" in texto_usuario or "$" in texto_usuario:
-        es_vip = es_usuario_vip(user_id)
+        es_vip_usr = es_usuario_vip(user_id)
         tiene_recargo = "+" in texto_usuario or "igtf" in texto_usuario or "iva" in texto_usuario
         
-        if tiene_recargo and not es_vip:
+        if tiene_recargo and not es_vip_usr:
             bot.reply_to(
                 message, 
                 "⭐ *Función VIP:* El cálculo con IGTF, IVA o porcentajes personalizados es exclusivo de la suscripción VIP.\n\nUsa /planes para activar tu cuenta.", 
