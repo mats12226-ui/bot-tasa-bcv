@@ -92,9 +92,6 @@ def obtener_tasas():
     
     return obtener_tasas_bcv_directo()
 
-
-
-
 @bot.message_handler(commands=['start', 'help'])
 def enviar_bienvenida(message):
     registrar_o_actualizar_usuario(
@@ -116,7 +113,7 @@ def enviar_bienvenida(message):
 @bot.message_handler(commands=['stats'])
 def ver_estadisticas(message):
     if message.from_user.id == MI_TELEGRAM_ID:
-        total, premium = obtener_estadisticas
+        total, premium = obtener_estadisticas()
 
         texto_stats = (
             "📊 *Estadísticas de Tasa Universal Diario*\n\n"
@@ -126,8 +123,6 @@ def ver_estadisticas(message):
         bot.reply_to(message, texto_stats, parse_mode="Markdown")
     else:
         bot.reply_to(message, "⚠️ No tienes permiso para ver esta información.")
-
-
 
 @bot.message_handler(func=lambda message: True)
 def responder_usuario(message):
