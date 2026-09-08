@@ -24,7 +24,7 @@ from database import (
 
 init_db()
 
-MI_TELEGRAM_ID = 8884313811
+MI_TELEGRAM_ID = os.getenv("TELEGRAM_ADMIN_ID")
 TASA_ULTIMA_USD = None
 TASA_ULTIMA_EUR = None
 
