@@ -116,7 +116,7 @@ def ver_estadisticas(message):
         total, premium = obtener_estadisticas()
 
         texto_stats = (
-            "📊 *Estadísticas de Tasa Universal Diario*\n\n"
+            "📊 *Estadísticas de BCV Diario*\n\n"
             f"👥 *Usuarios totales:* `{total}`\n"
             f"⭐ *Usuarios VIP/Premium:* `{premium}`"
         )
