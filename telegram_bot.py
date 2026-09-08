@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand, BotCommandScopeChat
 
-from database import init_db, registrar_o_actualizar_usuario, obtener_estadisticas, activar_premium
+from database import init_db, registrar_o_actualizar_usuario, obtener_estadisticas, activar_premium, es_usuario_vip
 
 init_db()
 
@@ -125,12 +125,23 @@ def ver_estadisticas(message):
 
 @bot.message_handler(commands=['planes', 'vip', 'premium'])
 def mostrar_planes(message):
+    user_id = message.from_user.id
     registrar_o_actualizar_usuario(
-        user_id=message.from_user.id,
+        user_id=user_id,
         username=message.from_user.username,
         first_name=message.from_user.first_name
     )
     
+    if es_usuario_vip(user_id):
+        texto_vip = (
+            "⭐ *ESTADO DE TU SUSCRIPCIÓN VIP*\n\n"
+            "🟢 *Estado:* Activo\n"
+            "✨ *Beneficios:* Alertas automáticas, calculadora sin límites y prioridad en consultas.\n\n"
+            "¡Gracias por apoyar el proyecto!"
+        )
+        bot.reply_to(message, texto_vip, parse_mode="Markdown")
+        return
+
     tasa_usd, _ = obtener_tasas_bcv_directo()
     precio_usd = 2.0
     
