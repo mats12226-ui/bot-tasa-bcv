@@ -291,6 +291,9 @@ def enviar_bienvenida(message):
         username=message.from_user.username,
         first_name=message.from_user.first_name
     )
+
+    estado_vip = es_usuario_vip(user_id)
+    print(f"DEBUG: Usuario {user_id} ejecutó /start. ¿Es VIP?: {estado_vip}")
     
     if es_usuario_vip(user_id):
         comandos_vip = [
