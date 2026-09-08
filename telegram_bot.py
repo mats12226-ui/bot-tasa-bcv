@@ -357,13 +357,13 @@ def mostrar_planes(message):
         return
 
     tasa_usd, _ = obtener_tasas_bcv_directo()
-    precio_usd = 2.0
+    precio_usd = 4.0
     
     if tasa_usd:
         precio_bs = round(precio_usd * tasa_usd, 2)
-        monto_texto = f"💵 *Precio:* $2 USD / mes (al cambio BCV: `{precio_bs:,.2f} Bs.`)\n\n"
+        monto_texto = f"💵 *Precio:* $4 USD / Acceso permanente (al cambio BCV: `{precio_bs:,.2f} Bs.`)\n\n"
     else:
-        monto_texto = "💵 *Precio:* $2 USD / mes (calculado al cambio oficial BCV)\n\n"
+        monto_texto = "💵 *Precio:* $4 USD / Acceso permanente (calculado al cambio oficial BCV)\n\n"
 
     texto_plan = (
         "⭐ *BENEFICIOS DE LA SUSCRIPCIÓN VIP* ⭐\n\n"
