@@ -1,14 +1,15 @@
 import os
-from bs4 import BeautifulSoup
 import json
-import urllib.request
-import telebot
-from dotenv import load_dotenv
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
 import ssl
+import threading
+import urllib.request
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand, BotCommandScopeChat
+
 from database import init_db, registrar_o_actualizar_usuario, obtener_estadisticas, activar_premium
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 init_db()
 
@@ -27,28 +28,41 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
 def run_http_server():
-        port = int(os.environ.get("PORT", 8080))
-        server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
-        server.serve_forever()
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
+    server.serve_forever()
 
 threading.Thread(target=run_http_server, daemon=True).start()
 
-
 load_dotenv()
-
 TOKEN = os.getenv("TELEGRAM_TOKEN")
-bot = telebot.TeleBot(TOKEN)
-
-if TOKEN:
-    print("✅ TOKEN cargado correctamente.")
-else:
-    raise ValueError("⚠️ No se encontró TELEGRAM_TOKEN en las variables de entorno.")
 
 if not TOKEN:
-    raise ValueError("⚠️ No se encontró TELEGRAM_TOKEN en el archivo .env")
+    raise ValueError("⚠️ No se encontró TELEGRAM_TOKEN en las variables de entorno.")
+
+bot = telebot.TeleBot(TOKEN)
+print("✅ TOKEN cargado correctamente.")
+
+def registrar_comandos_sugeridos():
+    comandos_generales = [
+        BotCommand("start", "Iniciar el bot y ver el menú principal"),
+        BotCommand("tasa", "Consultar la tasa del Dólar y Euro oficial BCV"),
+        BotCommand("planes", "Ver los beneficios y suscribirte a la versión VIP"),
+        BotCommand("help", "Instrucciones de uso y comandos disponibles")
+    ]
+    bot.set_my_commands(comandos_generales)
+
+    comandos_admin = comandos_generales + [
+        BotCommand("stats", "👑 [Admin] Ver estadísticas generales de usuarios y VIP")
+    ]
+    try:
+        bot.set_my_commands(comandos_admin, scope=BotCommandScopeChat(chat_id=MI_TELEGRAM_ID))
+    except Exception as e:
+        print(f"No se pudo establecer menú de admin: {e}")
+
+registrar_comandos_sugeridos()
 
 def obtener_tasas_bcv_directo():
-    """Consulta directamente la página oficial del BCV ignorando validación SSL."""
     url = "https://www.bcv.org.ve/"
     try:
         contexto_ssl = ssl.create_default_context()
@@ -77,23 +91,6 @@ def obtener_tasas_bcv_directo():
         print(f"Error extrayendo datos directos del BCV: {e}")
         return None, None
 
-def obtener_tasas():
-    """Intenta obtener las tasas de la API y si falla o se retrasa, consulta el BCV."""
-    url = "https://ve.dolarapi.com/v1/dolares/oficial"
-    try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=4) as response:
-            data = json.loads(response.read().decode())
-            tasa_usd = float(data.get("promedio", 0))
-            
-            _, tasa_eur = obtener_tasas_bcv_directo()
-            if tasa_usd > 0 and tasa_eur:
-                return tasa_usd, tasa_eur
-    except Exception as e:
-        print(f"Error con dolarapi: {e}. Intentando lectura directa del BCV...")
-    
-    return obtener_tasas_bcv_directo()
-
 @bot.message_handler(commands=['start', 'help'])
 def enviar_bienvenida(message):
     registrar_o_actualizar_usuario(
@@ -103,8 +100,9 @@ def enviar_bienvenida(message):
     )
     texto = (
         "🇻🇪 *¡Bienvenido al Bot de Tasas BCV!*\n\n"
-        "• Escribe *tasa* para consultar el Dólar y Euro oficial.\n\n"
-        "📌 *Ejemplos de conversión:*\n"
+        "• Escribe *tasa* para consultar el Dólar y Euro oficial.\n"
+        "• Usa /planes para conocer los beneficios de la *Suscripción VIP*.\n\n"
+        "📌 *Ejemplos de conversión rápida:*\n"
         "• `50 usd` ➔ Convierte 50 Dólares a Bolívares.\n"
         "• `50 eur` ➔ Convierte 50 Euros a Bolívares.\n"
         "• `2000 bs` ➔ Convierte 2000 Bolívares a USD y EUR.\n"
@@ -116,7 +114,6 @@ def enviar_bienvenida(message):
 def ver_estadisticas(message):
     if message.from_user.id == MI_TELEGRAM_ID:
         total, premium = obtener_estadisticas()
-
         texto_stats = (
             "📊 *Estadísticas de BCV Diario*\n\n"
             f"👥 *Usuarios totales:* `{total}`\n"
@@ -126,9 +123,6 @@ def ver_estadisticas(message):
     else:
         bot.reply_to(message, "⚠️ No tienes permiso para ver esta información.")
 
-tasa_actual, _ = obtener_tasas_bcv_directo()  # La función que ya usas para consultar el BCV
-precio_usd = 2.0
-
 @bot.message_handler(commands=['planes', 'vip', 'premium'])
 def mostrar_planes(message):
     registrar_o_actualizar_usuario(
@@ -137,14 +131,23 @@ def mostrar_planes(message):
         first_name=message.from_user.first_name
     )
     
+    tasa_usd, _ = obtener_tasas_bcv_directo()
+    precio_usd = 2.0
+    
+    if tasa_usd:
+        precio_bs = round(precio_usd * tasa_usd, 2)
+        monto_texto = f"💵 *Precio:* $2 USD / mes (al cambio BCV: `{precio_bs:,.2f} Bs.`)\n\n"
+    else:
+        monto_texto = "💵 *Precio:* $2 USD / mes (calculado al cambio oficial BCV)\n\n"
+
     texto_plan = (
-        "⭐ *BENEFICIOS DE LA SUSCRIPCIÓN PREMIUM* ⭐\n\n"
+        "⭐ *BENEFICIOS DE LA SUSCRIPCIÓN PREMIUM / VIP* ⭐\n\n"
         "Lleva el control total de tus finanzas al instante:\n\n"
         "⚡ *Alertas Instantáneas:* Recibe la tasa del día al momento exacto de su publicación.\n"
         "🧮 *Calculadora Avanzada:* Convierte montos rápidamente calculando márgenes y comisiones.\n"
         "📈 *Historial y Gráficos:* Analiza la tendencia y variación de la moneda.\n"
         "🚫 *Sin Anuncios:* Consultas ilimitadas y respuestas directas sin interrupciones.\n\n"
-        "💵 *Precio:* $2 USD / mes (al cambio BCV)\n\n"
+        f"{monto_texto}"
         "💳 *Datos de Pago Móvil (Ubii):*\n"
         "• *Banco:* Ubii Payments (0178) / Banco Venezolano de Crédito\n"
         "• *Teléfono:* `0414-622-4858`\n"  
@@ -162,24 +165,20 @@ def recibir_comprobante(message):
     
     bot.reply_to(message, "📩 *Comprobante recibido.* Estamos validando tu pago. Te notificaremos al ser verificado.", parse_mode="Markdown")
     
-    # Crear botones de aprobación para el Admin
     markup = InlineKeyboardMarkup()
     btn_aprobar = InlineKeyboardButton("✅ Aprobar VIP", callback_data=f"aprobar_{user_id}")
     btn_rechazar = InlineKeyboardButton("❌ Rechazar", callback_data=f"rechazar_{user_id}")
     markup.add(btn_aprobar, btn_rechazar)
     
     info_pago = (
-        f"👤 *NUEVO SOLICITUD DE PAGO VIP*\n\n"
+        f"👤 *NUEVA SOLICITUD DE PAGO VIP*\n\n"
         f"• *Usuario:* {first_name} (@{username})\n"
         f"• *ID:* `{user_id}`"
     )
     
-    # Enviar foto al admin
     foto_id = message.photo[-1].file_id
     bot.send_photo(MI_TELEGRAM_ID, foto_id, caption=info_pago, reply_markup=markup, parse_mode="Markdown")
 
-
-# 3. Manejo de botones interactivos (Aprobar / Rechazar)
 @bot.callback_query_handler(func=lambda call: call.data.startswith(('aprobar_', 'rechazar_')))
 def procesar_aprobacion(call):
     if call.from_user.id != MI_TELEGRAM_ID:
@@ -191,6 +190,17 @@ def procesar_aprobacion(call):
     
     if accion == "aprobar":
         activar_premium(cliente_id, es_premium=1)
+        
+        comandos_vip = [
+            BotCommand("start", "Menú principal"),
+            BotCommand("tasa", "Consultar la tasa del Dólar y Euro BCV"),
+            BotCommand("planes", "Ver estado de tu suscripción VIP"),
+            BotCommand("help", "Instrucciones de uso"),
+        ]
+        try:
+            bot.set_my_commands(comandos_vip, scope=BotCommandScopeChat(chat_id=cliente_id))
+        except Exception as e:
+            print(f"Error asignando comandos VIP: {e}")
         
         bot.send_message(
             cliente_id, 
@@ -218,6 +228,7 @@ def procesar_aprobacion(call):
             message_id=call.message.message_id, 
             caption=call.message.caption + "\n\n🔴 *ESTADO: RECHAZADO*"
         )
+
 @bot.message_handler(func=lambda message: True)
 def responder_usuario(message):
     registrar_o_actualizar_usuario(
@@ -292,7 +303,6 @@ def responder_usuario(message):
             bot.reply_to(message, respuesta, parse_mode="Markdown")
         except ValueError:
             bot.reply_to(message, "Escribe *tasa*, un número (ej: `50`), o especifica la moneda (ej: `50 usd`, `20 eur`, `1000 bs`).")
-
 
 print("🚀 Bot de Telegram en ejecución...")
 bot.infinity_polling(skip_pending=True)
