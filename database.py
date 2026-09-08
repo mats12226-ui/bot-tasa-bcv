@@ -29,6 +29,22 @@ def registrar_o_actualizar_usuario(user_id, username, first_name):
     conn.commit()
     conn.close()
 
+def obtener_id_por_username(username):
+    """Busca el ID de Telegram mediante el username de forma flexible."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    username_limpio = username.strip().replace("@", "").lower()
+    
+    cursor.execute('''
+        SELECT user_id FROM usuarios 
+        WHERE LOWER(REPLACE(username, '@', '')) = ?
+    ''', (username_limpio,))
+    
+    resultado = cursor.fetchone()
+    conn.close()
+    return resultado[0] if resultado else None
+
 def activar_premium(user_id, es_vip=1):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()

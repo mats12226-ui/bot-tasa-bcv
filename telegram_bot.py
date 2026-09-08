@@ -18,7 +18,8 @@ from database import (
     obtener_estadisticas, 
     activar_premium, 
     es_usuario_vip, 
-    obtener_usuarios_vip
+    obtener_usuarios_vip,
+    obtener_id_por_username
 )
 
 init_db()
@@ -74,42 +75,49 @@ def registrar_comandos_sugeridos():
         print(f"No se pudo establecer menú de admin: {e}")
 
 @bot.message_handler(commands=['darvip', 'quitarvip'])
-def gestionar_vip_manual(message):
+@bot.message_handler(commands=['darvip', 'quitarvip'])
+def cmd_gestionar_vip(message):
+    # Verificar que solo el administrador use el comando
     if message.from_user.id != MI_TELEGRAM_ID:
-        bot.reply_to(message, "⚠️ No tienes permiso para usar este comando.")
+        bot.reply_to(message, "⚠️ No tienes autorización para ejecutar este comando.")
         return
 
-    partes = message.text.split()
+    partes = message.text.split(maxsplit=1)
     if len(partes) < 2:
-        bot.reply_to(message, "⚠️ Uso correcto:\n`/darvip 12345678` (por ID)\no\n`/darvip @username` (por usuario)", parse_mode="Markdown")
+        bot.reply_to(message, "⚠️ *Formato incorrecto.*\nUso: `/darvip @username` o `/darvip 12345678`", parse_mode="Markdown")
         return
 
-    target = partes[1]
+    target = partes[1].strip()
     accion = message.text.split()[0].replace("/", "")
+    es_vip = 1 if accion == "darvip" else 0
 
+    # Si se ingresó un ID numérico directo
     if target.isdigit():
         target_id = int(target)
     else:
-        from database import obtener_id_por_username
+        # Buscar por Username en SQLite
         target_id = obtener_id_por_username(target)
         if not target_id:
-            bot.reply_to(message, f"❌ No se encontró al usuario `{target}` en la base de datos. Pídele que envíe /start al bot primero.", parse_mode="Markdown")
+            bot.reply_to(
+                message, 
+                f"❌ No se encontró al usuario `{target}` en la base de datos.\n\n"
+                "📌 *Causas posibles:*\n"
+                "1. El usuario nunca ha iniciado el bot con `/start`.\n"
+                "2. El usuario no tiene un `@username` público en Telegram.", 
+                parse_mode="Markdown"
+            )
             return
 
-    es_vip = 1 if accion == "darvip" else 0
-
     activar_premium(target_id, es_vip=es_vip)
-    
-    if es_vip == 1:
-        bot.reply_to(message, f"✅ ¡Usuario `{target_id}` activado como VIP con éxito!", parse_mode="Markdown")
-        try:
-            bot.send_message(target_id, "🎉 *¡Se te ha otorgado acceso VIP gratuito!* Ya puedes disfrutar de alertas automáticas y la calculadora con impuestos.", parse_mode="Markdown")
-        except Exception as e:
-            print(f"No se pudo notificar al usuario: {e}")
-    else:
-        bot.reply_to(message, f"🔴 Acceso VIP removido para el usuario `{target_id}`.", parse_mode="Markdown")
 
-registrar_comandos_sugeridos()
+    estado = "activado" if es_vip == 1 else "desactivado"
+    bot.reply_to(message, f"✅ Acceso VIP *{estado}* para el usuario (ID: `{target_id}`).", parse_mode="Markdown")
+    
+    try:
+        msg = "🎉 *¡Tu suscripción VIP ha sido activada!*" if es_vip == 1 else "🔴 Tu acceso VIP ha finalizado."
+        bot.send_message(target_id, msg, parse_mode="Markdown")
+    except Exception as e:
+        print(f"No se pudo notificar al usuario {target_id}: {e}")
 
 def obtener_tasas_bcv_directo():
     url = "https://www.bcv.org.ve/"
