@@ -1,10 +1,10 @@
 import sqlite3
-import os
 
-DB_Name = "bot_data.db"
+DB_NAME = "bot_data.db"
 
 def init_db():
-    conn = sqlite3.connect(DB_Name)
+    """Crea la tabla de usuarios si no existe."""
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS usuarios (
@@ -18,24 +18,30 @@ def init_db():
     conn.commit()
     conn.close()
 
-    def registrar_o_actualizar_usuario(user_id, username, first_name):
-        ('''
+def registrar_o_actualizar_usuario(user_id, username, first_name):
+    """Registra un nuevo usuario o actualiza sus datos si ya existe."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('''
         INSERT INTO usuarios (user_id, username, first_name)
         VALUES (?, ?, ?)
         ON CONFLICT(user_id) DO UPDATE SET
             username = excluded.username,
             first_name = excluded.first_name
-            ''', (user_id, username, first_name))
+    ''', (user_id, username, first_name))
+    conn.commit()
+    conn.close()
 
-        def obtener_estadisticas():
-            conn = sqlite3.connect(DB_Name)
-            cursor = conn.cursor()\
-
-            cursor.execute("SELECT COUNT(*) FROM USUARIOS")
-            total_usuarios = cursor.fetchone()[0]
-
-            cursor.execute("SELECT COUNT(*) FROM usuarios WHERE es_premium = 1")
-            total_premium = cursor.fetchone()[0]
-
-            conn.close()
-            return total_usuarios, total_premium
+def obtener_estadisticas():
+    """Devuelve el total de usuarios y cuántos son premium."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT COUNT(*) FROM usuarios")
+    total_usuarios = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM usuarios WHERE es_premium = 1")
+    total_premium = cursor.fetchone()[0]
+    
+    conn.close()
+    return total_usuarios, total_premium
