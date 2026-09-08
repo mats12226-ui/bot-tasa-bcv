@@ -73,6 +73,42 @@ def registrar_comandos_sugeridos():
     except Exception as e:
         print(f"No se pudo establecer menú de admin: {e}")
 
+@bot.message_handler(commands=['darvip', 'quitarvip'])
+def gestionar_vip_manual(message):
+    if message.from_user.id != MI_TELEGRAM_ID:
+        bot.reply_to(message, "⚠️ No tienes permiso para usar este comando.")
+        return
+
+    partes = message.text.split()
+    if len(partes) < 2:
+        bot.reply_to(message, "⚠️ Uso correcto:\n`/darvip 12345678` (por ID)\no\n`/darvip @username` (por usuario)", parse_mode="Markdown")
+        return
+
+    target = partes[1]
+    accion = message.text.split()[0].replace("/", "")
+
+    if target.isdigit():
+        target_id = int(target)
+    else:
+        from database import obtener_id_por_username
+        target_id = obtener_id_por_username(target)
+        if not target_id:
+            bot.reply_to(message, f"❌ No se encontró al usuario `{target}` en la base de datos. Pídele que envíe /start al bot primero.", parse_mode="Markdown")
+            return
+
+    es_vip = 1 if accion == "darvip" else 0
+
+    activar_premium(target_id, es_vip=es_vip)
+    
+    if es_vip == 1:
+        bot.reply_to(message, f"✅ ¡Usuario `{target_id}` activado como VIP con éxito!", parse_mode="Markdown")
+        try:
+            bot.send_message(target_id, "🎉 *¡Se te ha otorgado acceso VIP gratuito!* Ya puedes disfrutar de alertas automáticas y la calculadora con impuestos.", parse_mode="Markdown")
+        except Exception as e:
+            print(f"No se pudo notificar al usuario: {e}")
+    else:
+        bot.reply_to(message, f"🔴 Acceso VIP removido para el usuario `{target_id}`.", parse_mode="Markdown")
+
 registrar_comandos_sugeridos()
 
 def obtener_tasas_bcv_directo():
