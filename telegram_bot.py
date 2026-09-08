@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import ssl
-from database import init_db, registrar_o_actualizar_usuario, obtener_estadisticas
+from database import init_db, registrar_o_actualizar_usuario, obtener_estadisticas, activar_premium
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 init_db()
 
@@ -50,7 +51,6 @@ def obtener_tasas_bcv_directo():
     """Consulta directamente la página oficial del BCV ignorando validación SSL."""
     url = "https://www.bcv.org.ve/"
     try:
-        # Ignorar errores de certificado SSL de la pagina del BCV
         contexto_ssl = ssl.create_default_context()
         contexto_ssl.check_hostname = False
         contexto_ssl.verify_mode = ssl.CERT_NONE
@@ -62,15 +62,17 @@ def obtener_tasas_bcv_directo():
         html = urllib.request.urlopen(req, context=contexto_ssl, timeout=8).read()
         soup = BeautifulSoup(html, 'html.parser')
         
-        # Extraer Dólar
         div_dolar = soup.find('div', id='dolar')
-        tasa_usd = float(div_dolar.find('strong').text.strip().replace(',', '.'))
-        
-        # Extraer Euro
         div_euro = soup.find('div', id='euro')
-        tasa_eur = float(div_euro.find('strong').text.strip().replace(',', '.'))
         
-        return tasa_usd, tasa_eur
+        if div_dolar and div_euro:
+            tasa_usd = float(div_dolar.find('strong').text.strip().replace(',', '.'))
+            tasa_eur = float(div_euro.find('strong').text.strip().replace(',', '.'))
+            return tasa_usd, tasa_eur
+        else:
+            print("⚠️ No se encontraron las etiquetas 'dolar' o 'euro' en el HTML del BCV.")
+            return None, None
+
     except Exception as e:
         print(f"Error extrayendo datos directos del BCV: {e}")
         return None, None
@@ -124,6 +126,98 @@ def ver_estadisticas(message):
     else:
         bot.reply_to(message, "⚠️ No tienes permiso para ver esta información.")
 
+tasa_actual, _ = obtener_tasas_bcv_directo()  # La función que ya usas para consultar el BCV
+precio_usd = 2.0
+
+@bot.message_handler(commands=['planes', 'vip', 'premium'])
+def mostrar_planes(message):
+    registrar_o_actualizar_usuario(
+        user_id=message.from_user.id,
+        username=message.from_user.username,
+        first_name=message.from_user.first_name
+    )
+    
+    texto_plan = (
+        "⭐ *BENEFICIOS DE LA SUSCRIPCIÓN PREMIUM* ⭐\n\n"
+        "Lleva el control total de tus finanzas al instante:\n\n"
+        "⚡ *Alertas Instantáneas:* Recibe la tasa del día al momento exacto de su publicación.\n"
+        "🧮 *Calculadora Avanzada:* Convierte montos rápidamente calculando márgenes y comisiones.\n"
+        "📈 *Historial y Gráficos:* Analiza la tendencia y variación de la moneda.\n"
+        "🚫 *Sin Anuncios:* Consultas ilimitadas y respuestas directas sin interrupciones.\n\n"
+        "💵 *Precio:* $2 USD / mes (al cambio BCV)\n\n"
+        "💳 *Datos de Pago Móvil (Ubii):*\n"
+        "• *Banco:* Ubii Payments (0178) / Banco Venezolano de Crédito\n"
+        "• *Teléfono:* `0414-622-4858`\n"  
+        "• *Cédula:* `V-34.564.906`\n\n"   
+        "📸 *¿Ya pagaste?*\n"
+        "Envía la captura de pantalla o foto del comprobante directamente a este chat para activar tu cuenta."
+    )
+    bot.reply_to(message, texto_plan, parse_mode="Markdown")
+
+@bot.message_handler(content_types=['photo'])
+def recibir_comprobante(message):
+    user_id = message.from_user.id
+    first_name = message.from_user.first_name
+    username = message.from_user.username or "Sin Username"
+    
+    bot.reply_to(message, "📩 *Comprobante recibido.* Estamos validando tu pago. Te notificaremos al ser verificado.", parse_mode="Markdown")
+    
+    # Crear botones de aprobación para el Admin
+    markup = InlineKeyboardMarkup()
+    btn_aprobar = InlineKeyboardButton("✅ Aprobar VIP", callback_data=f"aprobar_{user_id}")
+    btn_rechazar = InlineKeyboardButton("❌ Rechazar", callback_data=f"rechazar_{user_id}")
+    markup.add(btn_aprobar, btn_rechazar)
+    
+    info_pago = (
+        f"👤 *NUEVO SOLICITUD DE PAGO VIP*\n\n"
+        f"• *Usuario:* {first_name} (@{username})\n"
+        f"• *ID:* `{user_id}`"
+    )
+    
+    # Enviar foto al admin
+    foto_id = message.photo[-1].file_id
+    bot.send_photo(MI_TELEGRAM_ID, foto_id, caption=info_pago, reply_markup=markup, parse_mode="Markdown")
+
+
+# 3. Manejo de botones interactivos (Aprobar / Rechazar)
+@bot.callback_query_handler(func=lambda call: call.data.startswith(('aprobar_', 'rechazar_')))
+def procesar_aprobacion(call):
+    if call.from_user.id != MI_TELEGRAM_ID:
+        bot.answer_callback_query(call.id, "⚠️ No tienes permiso.", show_alert=True)
+        return
+
+    accion, cliente_id = call.data.split('_')
+    cliente_id = int(cliente_id)
+    
+    if accion == "aprobar":
+        activar_premium(cliente_id, es_premium=1)
+        
+        bot.send_message(
+            cliente_id, 
+            "🎉 *¡Felicidades! Tu acceso VIP ha sido activado.* Ya disfrutas de todos los beneficios.", 
+            parse_mode="Markdown"
+        )
+        
+        bot.answer_callback_query(call.id, "✅ Usuario activado como VIP")
+        bot.edit_message_caption(
+            chat_id=call.message.chat.id, 
+            message_id=call.message.message_id, 
+            caption=call.message.caption + "\n\n🟢 *ESTADO: APROBADO*"
+        )
+        
+    elif accion == "rechazar":
+        bot.send_message(
+            cliente_id, 
+            "⚠️ *Pago no verificado.* No pudimos validar tu comprobante. Por favor, verifica e inténtalo de nuevo.", 
+            parse_mode="Markdown"
+        )
+        
+        bot.answer_callback_query(call.id, "❌ Pago rechazado")
+        bot.edit_message_caption(
+            chat_id=call.message.chat.id, 
+            message_id=call.message.message_id, 
+            caption=call.message.caption + "\n\n🔴 *ESTADO: RECHAZADO*"
+        )
 @bot.message_handler(func=lambda message: True)
 def responder_usuario(message):
     registrar_o_actualizar_usuario(

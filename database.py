@@ -18,6 +18,18 @@ def init_db():
     conn.commit()
     conn.close()
 
+def activar_premium(user_id, es_premium=1):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE usuarios 
+        SET es_premium = ? 
+        WHERE user_id = ?
+    ''', (es_premium, user_id))
+    conn.commit()
+    conn.close()
+
+
 def registrar_o_actualizar_usuario(user_id, username, first_name):
     """Registra un nuevo usuario o actualiza sus datos si ya existe."""
     conn = sqlite3.connect(DB_NAME)
