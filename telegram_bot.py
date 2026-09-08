@@ -24,7 +24,8 @@ from database import (
 
 init_db()
 
-MI_TELEGRAM_ID = os.getenv("TELEGRAM_ADMIN_ID")
+ADMIN_ID_RAW = os.getenv("TELEGRAM_ADMIN_ID")
+MI_TELEGRAM_ID = int(ADMIN_ID_RAW) if ADMIN_ID_RAW else None
 TASA_ULTIMA_USD = None
 TASA_ULTIMA_EUR = None
 
@@ -74,7 +75,6 @@ def registrar_comandos_sugeridos():
     except Exception as e:
         print(f"No se pudo establecer menú de admin: {e}")
 
-@bot.message_handler(commands=['darvip', 'quitarvip'])
 @bot.message_handler(commands=['darvip', 'quitarvip'])
 def cmd_gestionar_vip(message):
     # Verificar que solo el administrador use el comando
