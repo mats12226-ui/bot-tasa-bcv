@@ -291,11 +291,10 @@ def enviar_bienvenida(message):
         username=message.from_user.username,
         first_name=message.from_user.first_name
     )
-
-    estado_vip = es_usuario_vip(user_id)
-    print(f"DEBUG: Usuario {user_id} ejecutó /start. ¿Es VIP?: {estado_vip}")
     
-    if es_usuario_vip(user_id):
+    # ❌ ANTES: if es_usuario_vip(user_id):
+    # ✅ AHORA:
+    if es_vip(user_id, MI_TELEGRAM_ID):
         comandos_vip = [
             BotCommand("start", "Menú principal"),
             BotCommand("tasa", "Consultar la tasa del Dólar y Euro BCV"),
@@ -342,7 +341,9 @@ def mostrar_planes(message):
         first_name=message.from_user.first_name
     )
     
-    if es_usuario_vip(user_id):
+    # ❌ ANTES: if es_usuario_vip(user_id):
+    # ✅ AHORA:
+    if es_vip(user_id, MI_TELEGRAM_ID):
         texto_vip = (
             "⭐ *ESTADO DE TU SUSCRIPCIÓN VIP*\n\n"
             "🟢 *Estado:* Activo\n\n"
@@ -411,7 +412,7 @@ def procesar_aprobacion(call):
     cliente_id = int(cliente_id)
     
     if accion == "aprobar":
-        activar_premium(cliente_id, es_vip=1)
+        agregar_vip(cliente_id)
         
         comandos_vip = [
             BotCommand("start", "Menú principal"),
@@ -479,7 +480,7 @@ def responder_usuario(message):
         bot.reply_to(message, respuesta, parse_mode="Markdown")
 
     elif "usd" in texto_usuario or "$" in texto_usuario:
-        es_vip_usr = es_usuario_vip(user_id)
+        es_vip_usr = es_vip(user_id, MI_TELEGRAM_ID)
         tiene_recargo = "+" in texto_usuario or "igtf" in texto_usuario or "iva" in texto_usuario
         
         if tiene_recargo and not es_vip_usr:
