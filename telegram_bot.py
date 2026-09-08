@@ -77,25 +77,29 @@ def registrar_comandos_sugeridos():
 
 @bot.message_handler(commands=['darvip', 'quitarvip'])
 def cmd_gestionar_vip(message):
-    # Verificar que solo el administrador use el comando
+    # 1. Verificar que solo el administrador use el comando
     if message.from_user.id != MI_TELEGRAM_ID:
         bot.reply_to(message, "⚠️ No tienes autorización para ejecutar este comando.")
         return
 
+    # 2. Validar que se haya pasado un argumento (ID o @username)
     partes = message.text.split(maxsplit=1)
     if len(partes) < 2:
-        bot.reply_to(message, "⚠️ *Formato incorrecto.*\nUso: `/darvip @username` o `/darvip 12345678`", parse_mode="Markdown")
+        bot.reply_to(
+            message, 
+            "⚠️ *Formato incorrecto.*\nUso:\n• `/darvip @username` o `/darvip 12345678`\n• `/quitarvip @username` o `/quitarvip 12345678`", 
+            parse_mode="Markdown"
+        )
         return
 
     target = partes[1].strip()
-    accion = message.text.split()[0].replace("/", "")
+    accion = message.text.split()[0].replace("/", "").lower()
     es_vip = 1 if accion == "darvip" else 0
 
-    # Si se ingresó un ID numérico directo
+    # 3. Determinar el ID del usuario objetivo
     if target.isdigit():
         target_id = int(target)
     else:
-        # Buscar por Username en SQLite
         target_id = obtener_id_por_username(target)
         if not target_id:
             bot.reply_to(
@@ -108,16 +112,46 @@ def cmd_gestionar_vip(message):
             )
             return
 
+    # 4. Actualizar estado en la Base de Datos
     activar_premium(target_id, es_vip=es_vip)
 
-    estado = "activado" if es_vip == 1 else "desactivado"
-    bot.reply_to(message, f"✅ Acceso VIP *{estado}* para el usuario (ID: `{target_id}`).", parse_mode="Markdown")
+    # 5. Notificar confirmación al Administrador
+    estado_texto = "activado" if es_vip == 1 else "desactivado"
+    bot.reply_to(
+        message, 
+        f"✅ Acceso VIP *{estado_texto}* para el usuario (ID: `{target_id}`).", 
+        parse_mode="Markdown"
+    )
     
+    # 6. Actualizar la lista de comandos del usuario en su interfaz
     try:
-        msg = "🎉 *¡Tu suscripción VIP ha sido activada!*" if es_vip == 1 else "🔴 Tu acceso VIP ha finalizado."
+        if es_vip == 1:
+            comandos_vip = [
+                BotCommand("start", "Menú principal"),
+                BotCommand("tasa", "Consultar la tasa del Dólar y Euro BCV"),
+                BotCommand("vip", "Ver estado de tu suscripción VIP"),
+                BotCommand("planes", "Ver estado de tu suscripción VIP"),
+                BotCommand("help", "Instrucciones de uso"),
+            ]
+            bot.set_my_commands(comandos_vip, scope=BotCommandScopeChat(chat_id=target_id))
+        else:
+            comandos_generales = [
+                BotCommand("start", "Iniciar el bot y ver el menú principal"),
+                BotCommand("tasa", "Consultar la tasa del Dólar y Euro oficial BCV"),
+                BotCommand("planes", "Ver beneficios y suscribirte a la versión VIP"),
+                BotCommand("vip", "Ver beneficios o estado de tu suscripción VIP"),
+                BotCommand("help", "Instrucciones de uso y comandos disponibles")
+            ]
+            bot.set_my_commands(comandos_generales, scope=BotCommandScopeChat(chat_id=target_id))
+    except Exception as e:
+        print(f"No se pudieron actualizar los comandos personalizados para {target_id}: {e}")
+
+    # 7. Notificar al usuario objetivo
+    try:
+        msg = "🎉 *¡Tu suscripción VIP ha sido activada!* Ya puedes disfrutar de alertas automáticas y calculadora con impuestos." if es_vip == 1 else "🔴 Tu acceso VIP ha finalizado."
         bot.send_message(target_id, msg, parse_mode="Markdown")
     except Exception as e:
-        print(f"No se pudo notificar al usuario {target_id}: {e}")
+        print(f"No se pudo notificar al usuario {target_id} vía chat privado: {e}")
 
 def obtener_tasas_bcv_directo():
     url = "https://www.bcv.org.ve/"
