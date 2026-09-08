@@ -7,6 +7,11 @@ from dotenv import load_dotenv
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import ssl
+from database import init_db, registrar_o_actualizar_usuario, obtener_estadisticas
+
+init_db()
+
+MI_TELEGRAM_ID = 8884313811
 
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -92,6 +97,11 @@ def obtener_tasas():
 
 @bot.message_handler(commands=['start', 'help'])
 def enviar_bienvenida(message):
+    registrar_o_actualizar_usuario(
+        user_id=message.from_user.id,
+        username=message.from_user.username,
+        first_name=message.from_user.first_name
+    )
     texto = (
         "🇻🇪 *¡Bienvenido al Bot de Tasas BCV!*\n\n"
         "• Escribe *tasa* para consultar el Dólar y Euro oficial.\n\n"
@@ -103,9 +113,29 @@ def enviar_bienvenida(message):
     )
     bot.reply_to(message, texto, parse_mode="Markdown")
 
+@bot.message_handler(commands=['stats'])
+def ver_estadisticas(message):
+    if message.from_user.id == MI_TELEGRAM_ID:
+        total, premium = obtener_estadisticas
+
+        texto_stats = (
+            "📊 *Estadísticas de Tasa Universal Diario*\n\n"
+            f"👥 *Usuarios totales:* `{total}`\n"
+            f"⭐ *Usuarios VIP/Premium:* `{premium}`"
+        )
+        bot.reply_to(message, texto_stats, parse_mode="Markdown")
+    else:
+        bot.reply_to(message, "⚠️ No tienes permiso para ver esta información.")
+
+
 
 @bot.message_handler(func=lambda message: True)
 def responder_usuario(message):
+    registrar_o_actualizar_usuario(
+        user_id=message.from_user.id,
+        username=message.from_user.username,
+        first_name=message.from_user.first_name
+    )
     texto_usuario = message.text.strip().lower()
     tasa_usd, tasa_eur = obtener_tasas_bcv_directo()
 
