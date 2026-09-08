@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand, BotCommandScopeChat
+import re
 
 from database import (
     init_db, 
@@ -135,6 +136,52 @@ def notificar_usuarios_vip(tasa_usd, tasa_eur):
             print(f"No se pudo enviar alerta VIP a {user_id}: {e}")
 
 threading.Thread(target=monitorear_tasas_bcv, daemon=True).start()
+
+def procesar_calculadora(texto, tasa_bcv_usd, tasa_bcv_eur):
+    texto = texto.lower().strip()
+
+    incluye_igtf = "+igtf" in texto or "igtf" in texto
+    incluye_iva = "+iva" in texto or "iva" in texto
+
+    patron = r'(\d+(?:[\.,]\d+)?)\s*(usd|bs|bolivares|eur|euro|euros)?'
+    coincidencia = re.search(patron, texto)
+
+    if not coincidencia:
+        return "⚠️ Formato no reconocido. Ejemplo: `50 usd`, `2500 bs +igtf`, `40 eur`."
+
+    monto = float(coincidencia.group(1).replace(',', '.'))
+    moneda = coincidencia.group(2) if coincidencia.group(2) else "usd"
+
+    monto_con_impuestos = monto
+    if incluye_igtf:
+        monto_con_impuestos *= 1.03
+    if incluye_iva:
+        monto_con_impuestos *= 1.16
+
+    # Calcular conversiones según la moneda ingresada
+    if moneda in ["usd"]:
+        monto_bs = monto_con_impuestos * tasa_bcv_usd
+        respuesta = (
+            f"💵 *Monto:* `${monto:.2f} USD`\n"
+            f"{'➕ *Con IGTF (3%):* `$' + f'{monto_con_impuestos:.2f} USD`\n' if incluye_igtf else ''}"
+            f"🇻🇪 *Total en Bs (Tasa BCV):* `{monto_bs:,.2f} Bs`"
+        )
+
+    elif moneda in ["bs", "bolivares"]:
+        monto_usd = monto_con_impuestos / tasa_bcv_usd
+        respuesta = (
+            f"🇻🇪 *Monto:* `{monto:,.2f} Bs`\n"
+            f"💵 *Total en USD (Tasa BCV):* `${monto_usd:.2f} USD`"
+        )
+
+    elif moneda in ["eur", "euro", "euros"]:
+        monto_bs = monto_con_impuestos * tasa_bcv_eur
+        respuesta = (
+            f"💶 *Monto:* `€{monto:.2f} EUR`\n"
+            f"🇻🇪 *Total en Bs (Tasa BCV Euro):* `{monto_bs:,.2f} Bs`"
+        )
+
+    return respuesta
 
 @bot.message_handler(commands=['start', 'help'])
 def enviar_bienvenida(message):
