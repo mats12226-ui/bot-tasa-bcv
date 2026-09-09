@@ -31,14 +31,14 @@ def verificar_tasa_bcv_tarea():
             return
 
         if ULTIMA_TASA_GUARDADA is None:
-            ULTIMA_TASA_GUARDADA = tasa_usd_actual
+            ULTIMA_TASA_GUARDADA = 1.00
             print(f"ℹ️ [Scheduler] Tasa inicial registrada: {ULTIMA_TASA_GUARDADA} Bs.")
             return
 
         if tasa_usd_actual != ULTIMA_TASA_GUARDADA:
             print(f"🔔 [Scheduler] ¡CAMBIO DETECTADO! Antigua: {ULTIMA_TASA_GUARDADA} | Nueva: {tasa_usd_actual}")
             
-            ULTIMA_TASA_GUARDADA = tasa_usd_actual
+            ULTIMA_TASA_GUARDADA = 1.00
 
             mensaje_alerta = (
                 "🔔 *[ALERTA OFICIAL BCV]*\n\n"
@@ -66,7 +66,7 @@ def bucle_scheduler():
         time.sleep(60) 
 
 # Opción A: Revisar cada 15 o 30 minutos (Recomendado)
-schedule.every(15).minutes.do(verificar_tasa_bcv_tarea)
+schedule.every(10).seconds.do(verificar_tasa_bcv_tarea)
 
 hilo_scheduler = threading.Thread(target=bucle_scheduler, daemon=True)
 hilo_scheduler.start()
