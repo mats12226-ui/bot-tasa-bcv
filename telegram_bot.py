@@ -11,6 +11,65 @@ from dotenv import load_dotenv
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand, BotCommandScopeChat
 from vip_manager import agregar_vip, remover_vip, es_vip
+import schedule
+import time
+import threading
+from vip_manager import cargar_vips
+
+ULTIMA_TASA_GUARDADA = None
+
+
+def verificar_tasa_bcv_tarea():
+    """Tarea que se ejecuta periódicamente para revisar la web del BCV."""
+    global ULTIMA_TASA_GUARDADA
+
+    try:
+        tasa_usd_actual, tasa_eur_actual = obtener_tasas_bcv_directo()
+
+        if not tasa_usd_actual:
+            print("⚠️ [Scheduler] No se pudo obtener la tasa del BCV en esta iteración.")
+            return
+
+        if ULTIMA_TASA_GUARDADA is None:
+            ULTIMA_TASA_GUARDADA = tasa_usd_actual
+            print(f"ℹ️ [Scheduler] Tasa inicial registrada: {ULTIMA_TASA_GUARDADA} Bs.")
+            return
+
+        if tasa_usd_actual != ULTIMA_TASA_GUARDADA:
+            print(f"🔔 [Scheduler] ¡CAMBIO DETECTADO! Antigua: {ULTIMA_TASA_GUARDADA} | Nueva: {tasa_usd_actual}")
+            
+            ULTIMA_TASA_GUARDADA = tasa_usd_actual
+
+            mensaje_alerta = (
+                "🔔 *[ALERTA OFICIAL BCV]*\n\n"
+                "El Banco Central de Venezuela acaba de actualizar las tasas:\n\n"
+                f"💵 *USD:* `{tasa_usd_actual}` Bs.\n"
+                f"💶 *EUR:* `{tasa_eur_actual}` Bs.\n\n"
+                "✨ *Notificación automática exclusiva para miembros VIP.*"
+            )
+
+            vips = cargar_vips()
+            for vip_id in vips.keys():
+                try:
+                    bot.send_message(int(vip_id), mensaje_alerta, parse_mode="Markdown")
+                    time.sleep(0.05) 
+                except Exception as e:
+                    print(f"❌ Error enviando alerta a {vip_id}: {e}")
+
+    except Exception as e:
+        print(f"❌ [Scheduler] Error durante la verificación de la tasa: {e}")
+
+def bucle_scheduler():
+    """Bucle infinito en segundo plano para ejecutar tareas programadas."""
+    while True:
+        schedule.run_pending()
+        time.sleep(60) 
+
+# Opción A: Revisar cada 15 o 30 minutos (Recomendado)
+schedule.every(15).minutes.do(verificar_tasa_bcv_tarea)
+
+hilo_scheduler = threading.Thread(target=bucle_scheduler, daemon=True)
+hilo_scheduler.start()
 
 from database import (
     init_db, 
@@ -566,8 +625,8 @@ comandos_actualizados = [
     BotCommand("help", "Instrucciones de uso")
 ]
 
-# Aplicamos los comandos actualizados
 bot.set_my_commands(comandos_actualizados)
+print("🚀 Scheduler iniciado correctamente en segundo plano.")
 
 print("🚀 Bot de Telegram en ejecución...")
 bot.infinity_polling(skip_pending=True)
