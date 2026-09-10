@@ -18,6 +18,10 @@ def init_db():
     conn.commit()
     conn.close()
 
+def es_administrador(user_id, admin_id):
+    """Verifica si el ID de Telegram coincide con el ID del Administrador."""
+    return int(user_id) == int(admin_id)
+
 def registrar_o_actualizar_usuario(user_id, username, first_name):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
