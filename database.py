@@ -2,6 +2,11 @@ import sqlite3
 
 DB_NAME = "bot_bcv.db"
 
+def es_administrador(user_id):
+    """Verifica si un ID de usuario pertenece a la lista de administradores."""
+    ADMINS = [8884313811] 
+    return user_id in ADMINS
+
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
