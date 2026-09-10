@@ -272,14 +272,18 @@ def cmd_quitar_vip(message):
 @bot.message_handler(commands=['stats'])
 def cmd_stats(message):
     db.registrar_o_actualizar_usuario(message.from_user.id, message.from_user.username, message.from_user.first_name)
-    total, vips, hoy, trimestre = db.obtener_estadisticas()
+    
+    if message.from_user.id != ADMIN_ID:
+        bot.reply_to(message, "⚠️ No tienes permiso para usar este comando.")
+        return
+
+    total, vips, hoy = db.obtener_estadisticas()
 
     msg = (
-        "📊 *Estadísticas de Uso del Bot*\n\n"
-        f"📅 *Conectados hoy (24h):* `{hoy}`\n"
-        f"🗓️ *Conectados este trimestre (90d):* `{trimestre}`\n"
-        f"⭐ *Usuarios VIP activos:* `{vips}`\n"
-        f"👥 *Total registrado en BD:* `{total}`"
+        "📊 *Estadísticas del Bot*\n\n"
+        f"👥 *Usuarios hoy (24h):* `{hoy}`\n"
+        f"⭐ *Usuarios VIP:* `{vips}`\n"
+        f"📁 *Total registrados:* `{total}`"
     )
     bot.reply_to(message, msg, parse_mode="Markdown")
 
