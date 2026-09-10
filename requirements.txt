@@ -2,3 +2,4 @@ pyTelegramBotAPI
 python-dotenv
 beautifulsoup4
 schedule
+flask
