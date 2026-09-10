@@ -390,9 +390,10 @@ def procesar_calculadora(message):
             equivalencia = f"\n💵 *TOTAL EN BS:* `{total_bs:,.2f}` Bs."
         elif es_bolivar:
             total_usd = monto_acumulado / tasa_usd
+            total_eur = monto_acumulado / tasa_eur
             moneda = "Bs."
-            tasa_ref = f"📊 Tasa USD BCV: `{tasa_usd:,.2f}` Bs."
-            equivalencia = f"\n💵 *TOTAL EN USD:* `{total_usd:,.2f}` USD"
+            tasa_ref = f"📊 *Tasas BCV:* USD `{tasa_usd:,.2f}` Bs. | EUR `{tasa_eur:,.2f}` Bs."
+            equivalencia = f"\n💵 *TOTAL EN USD:* `{total_usd:,.2f}` USD\n💶 *TOTAL EN EUR:* `{total_eur:,.2f}` EUR"
         else:
             total_bs = monto_acumulado * tasa_usd
             moneda = "USD"
@@ -414,7 +415,14 @@ def procesar_calculadora(message):
             respuesta = f"💶 *Conversión EUR ➡️ Bs. (BCV)*\n\n🔹 `{monto_base:,.2f}` EUR = `{total_bs:,.2f}` Bs.\n📊 Tasa EUR: `{tasa_eur:,.2f}` Bs."
         elif es_bolivar:
             total_usd = monto_base / tasa_usd
-            respuesta = f"🇻🇪 *Conversión Bs. ➡️ USD (BCV)*\n\n🔹 `{monto_base:,.2f}` Bs. = `{total_usd:,.2f}` USD\n📊 Tasa USD: `{tasa_usd:,.2f}` Bs."
+            total_eur = monto_base / tasa_eur
+            respuesta = (
+                f"🇻🇪 *Conversión Bs. (BCV)*\n\n"
+                f"🔹 `{monto_base:,.2f}` Bs. =\n"
+                f"💵 `{total_usd:,.2f}` USD\n"
+                f"💶 `{total_eur:,.2f}` EUR\n\n"
+                f"📊 *Tasas:* USD `{tasa_usd:,.2f}` Bs. | EUR `{tasa_eur:,.2f}` Bs."
+            )
         else:
             total_bs = monto_base * tasa_usd
             respuesta = f"💵 *Conversión USD ➡️ Bs. (BCV)*\n\n🔹 `{monto_base:,.2f}` USD = `{total_bs:,.2f}` Bs.\n📊 Tasa USD: `{tasa_usd:,.2f}` Bs."
