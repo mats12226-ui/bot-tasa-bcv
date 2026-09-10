@@ -101,10 +101,12 @@ def cmd_start(message):
         message, 
         "👋 ¡Hola! Bienvenido al bot de tasas oficiales del BCV.\n\n"
         "Usa /tasa para consultar la tasa actual o /vip para ver tu estado.\n\n"
-        "💡 Puedes escribir montos directamente como:\n"
+        "💡 Puedes escribir montos e impuestos directamente:\n"
         "• 50 usd\n"
         "• 50 eur\n"
-        "• 200 bs"
+        "• 200 bs\n"
+        "• 50 usd igtf\n"
+        "• 100 bs iva"
     )
 
 @bot.message_handler(commands=['tasa'])
@@ -199,7 +201,71 @@ def responder_texto_general(message):
         try:
             monto = float(match.group(1).replace(',', '.'))
             
-            if 'eur' in texto or 'euro' in texto or 'euros' in texto:
+            # 1. Calculo de IGTF (3%)
+            if 'igtf' in texto:
+                # Si no especifica moneda o pone USD
+                if 'eur' in texto:
+                    monto_bs = monto * tasa_eur
+                    monto_igtf_bs = monto_bs * 0.03
+                    monto_igtf_eur = monto * 0.03
+                    total_bs = monto_bs + monto_igtf_bs
+                    respuesta = (
+                        "🏦 Cálculo IGTF (3%) - EUR\n\n"
+                        f"🔹 Monto Base: {monto:,.2f} EUR ({monto_bs:,.2f} Bs.)\n"
+                        f"🔹 IGTF (3%): {monto_igtf_eur:,.2f} EUR ({monto_igtf_bs:,.2f} Bs.)\n"
+                        f"🔹 TOTAL A PAGAR: {monto + monto_igtf_eur:,.2f} EUR ({total_bs:,.2f} Bs.)\n\n"
+                        f"📊 Tasa Euro BCV: {tasa_eur} Bs."
+                    )
+                else:
+                    monto_bs = monto * tasa_usd if 'bs' not in texto else monto
+                    monto_usd = monto if 'bs' not in texto else monto / tasa_usd
+                    monto_igtf_bs = monto_bs * 0.03
+                    monto_igtf_usd = monto_usd * 0.03
+                    total_bs = monto_bs + monto_igtf_bs
+                    total_usd = monto_usd + monto_igtf_usd
+                    respuesta = (
+                        "🏦 Cálculo IGTF (3%) - USD\n\n"
+                        f"🔹 Monto Base: {monto_usd:,.2f} USD ({monto_bs:,.2f} Bs.)\n"
+                        f"🔹 IGTF (3%): {monto_igtf_usd:,.2f} USD ({monto_igtf_bs:,.2f} Bs.)\n"
+                        f"🔹 TOTAL A PAGAR: {total_usd:,.2f} USD ({total_bs:,.2f} Bs.)\n\n"
+                        f"📊 Tasa Dólar BCV: {tasa_usd} Bs."
+                    )
+
+            # 2. Calculo de IVA (16%)
+            elif 'iva' in texto:
+                iva_monto = monto * 0.16
+                total_con_iva = monto + iva_monto
+                
+                if 'usd' in texto or ('bs' not in texto and 'eur' not in texto):
+                    total_bs = total_con_iva * tasa_usd
+                    respuesta = (
+                        "🧾 Cálculo IVA (16%) - USD\n\n"
+                        f"🔹 Subtotal: {monto:,.2f} USD\n"
+                        f"🔹 IVA (16%): {iva_monto:,.2f} USD\n"
+                        f"🔹 TOTAL CON IVA: {total_con_iva:,.2f} USD ({total_bs:,.2f} Bs.)\n\n"
+                        f"📊 Tasa Dólar BCV: {tasa_usd} Bs."
+                    )
+                elif 'eur' in texto:
+                    total_bs = total_con_iva * tasa_eur
+                    respuesta = (
+                        "🧾 Cálculo IVA (16%) - EUR\n\n"
+                        f"🔹 Subtotal: {monto:,.2f} EUR\n"
+                        f"🔹 IVA (16%): {iva_monto:,.2f} EUR\n"
+                        f"🔹 TOTAL CON IVA: {total_con_iva:,.2f} EUR ({total_bs:,.2f} Bs.)\n\n"
+                        f"📊 Tasa Euro BCV: {tasa_eur} Bs."
+                    )
+                else: # Bolivares
+                    total_usd = total_con_iva / tasa_usd
+                    respuesta = (
+                        "🧾 Cálculo IVA (16%) - Bs.\n\n"
+                        f"🔹 Subtotal: {monto:,.2f} Bs.\n"
+                        f"🔹 IVA (16%): {iva_monto:,.2f} Bs.\n"
+                        f"🔹 TOTAL CON IVA: {total_con_iva:,.2f} Bs. ({total_usd:,.2f} USD)\n\n"
+                        f"📊 Tasa Dólar BCV: {tasa_usd} Bs."
+                    )
+
+            # 3. Conversiones normales (Sin IGTF ni IVA)
+            elif 'eur' in texto or 'euro' in texto or 'euros' in texto:
                 total_bs = monto * tasa_eur
                 respuesta = (
                     "💶 Conversión EUR ➡️ Bs. (BCV)\n\n"
@@ -232,10 +298,10 @@ def responder_texto_general(message):
             "🏛️ Tasas Oficiales BCV\n\n"
             f"💵 USD: {tasa_usd} Bs.\n"
             f"💶 EUR: {tasa_eur} Bs.\n\n"
-            "💡 Escribe un monto para calcular:\n"
+            "💡 Escribe un monto o cálculo:\n"
             "• 50 usd\n"
-            "• 50 eur\n"
-            "• 200 bs"
+            "• 50 usd igtf\n"
+            "• 100 bs iva"
         )
         bot.reply_to(message, msg)
 
