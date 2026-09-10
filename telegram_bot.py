@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import threading
 import requests
@@ -99,7 +100,8 @@ def cmd_start(message):
     bot.reply_to(
         message, 
         "👋 ¡Hola! Bienvenido al bot de tasas oficiales del BCV.\n\n"
-        "Usa `/tasa` para consultar la tasa actual o `/planes` para ver la membresía VIP.",
+        "Usa `/tasa` para consultar la tasa actual o `/planes` para ver la membresía VIP.\n"
+        "Escribe montos directamente como `50 usd`, `50 eur` o `200 bs` para calcular.",
         parse_mode="Markdown"
     )
 
@@ -169,6 +171,65 @@ def cmd_probar_alertas(message):
         f"✅ *Prueba finalizada*\n\nExitosos: {exitos}\nFallidos: {fallos}", 
         parse_mode="Markdown"
     )
+
+@bot.message_handler(func=lambda message: True)
+def responder_texto_general(message):
+    texto = message.text.lower().strip()
+    
+    usd_str, eur_str = obtener_tasas_bcv_directo()
+    
+    if not usd_str or not eur_str:
+        bot.reply_to(message, "❌ No se pudo obtener la tasa en este momento. Intenta más tarde con /tasa.")
+        return
+
+    try:
+        tasa_usd = float(usd_str)
+        tasa_eur = float(eur_str)
+    except ValueError:
+        bot.reply_to(message, "❌ Error al procesar las tasas del BCV.")
+        return
+
+    match = re.search(r'(\d+(?:[.,]\d+)?)', texto)
+    
+    if match:
+        monto = float(match.group(1).replace(',', '.'))
+        
+        if 'eur' in texto or 'euro' in texto or 'euros' in texto:
+            total_bs = monto * tasa_eur
+            respuesta = (
+                f"💶 *Conversión EUR ➡️ Bs.* (BCV)\n\n"
+                f"🔹 `{monto:,.2f}` EUR = *{total_bs:,.2f} Bs.*\n"
+                f"📊 Tasa Euro: `{tasa_eur}` Bs."
+            )
+        elif 'bs' in texto or 'bolivar' in texto or 'bolivares' in texto or 'ves' in texto:
+            total_usd = monto / tasa_usd
+            total_eur = monto / tasa_eur
+            respuesta = (
+                f"🇻🇪 *Conversión Bs. ➡️ Divisas* (BCV)\n\n"
+                f"🔹 `{monto:,.2f}` Bs. = *{total_usd:,.2f} USD*\n"
+                f"🔹 `{monto:,.2f}` Bs. = *{total_eur:,.2f} EUR*\n\n"
+                f"📊 Tasa USD: `{tasa_usd}` Bs. | EUR: `{tasa_eur}` Bs."
+            )
+        else:
+            total_bs = monto * tasa_usd
+            respuesta = (
+                f"💵 *Conversión USD ➡️ Bs.* (BCV)\n\n"
+                f"🔹 `{monto:,.2f}` USD = *{total_bs:,.2f} Bs.*\n"
+                f"📊 Tasa Dólar: `{tasa_usd}` Bs."
+            )
+            
+        bot.reply_to(message, respuesta, parse_mode="Markdown")
+    else:
+        msg = (
+            "🏛️ *Tasas Oficiales BCV*\n\n"
+            f"💵 *USD:* `{tasa_usd}` Bs.\n"
+            f"💶 *EUR:* `{tasa_eur}` Bs.\n\n"
+            "💡 *Escribe un monto para calcular:*\n"
+            "• `50 usd`\n"
+            "• `50 eur`\n"
+            "• `200 bs`"
+        )
+        bot.reply_to(message, msg, parse_mode="Markdown")
 
 if __name__ == "__main__":
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
