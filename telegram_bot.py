@@ -9,11 +9,12 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import schedule
 import urllib3
 from flask import Flask
+from database import es_administrador
 
 import database as db
 
 TOKEN = os.getenv("TELEGRAM_TOKEN", "TU_TOKEN_AQUI")
-ADMIN_ID = 123456789 
+ADMIN_ID = es_administrador("ADMINS")
 
 bot = telebot.TeleBot(TOKEN)
 app = Flask('')
