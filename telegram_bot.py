@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 import telebot
 import schedule
 import urllib3
+from flask import Flask
 
 from vip_manager import cargar_vips, es_vip
 
@@ -14,6 +15,16 @@ MI_TELEGRAM_ID = 123456789
 
 bot = telebot.TeleBot(TOKEN)
 ULTIMA_TASA_GUARDADA = None
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot de Telegram BCV activo."
+
+def run_flask():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
 
 def obtener_tasas_bcv_directo():
     url = "https://www.bcv.org.ve/"
@@ -161,6 +172,8 @@ def cmd_probar_alertas(message):
 
 if __name__ == "__main__":
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    threading.Thread(target=run_flask, daemon=True).start()
 
     hilo_scheduler = threading.Thread(target=bucle_scheduler, daemon=True)
     hilo_scheduler.start()
