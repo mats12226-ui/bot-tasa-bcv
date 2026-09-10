@@ -257,11 +257,11 @@ def cmd_planes(message):
         "🧮 Ejemplo: `50 usd +igtf +iva +5%`\n\n"
         "💳 *MÉTODOS DE PAGO:*\n\n"
         "📲 *Pago Móvil:*\n"
-        "• Banco: `Coloca tu Banco`\n"
-        "• Cédula/RIF: `Coloca tu Cédula/RIF`\n"
-        "• Teléfono: `Coloca tu Teléfono`\n\n"
-        "🟡 *Binance Pay / Crypto:*\n"
-        "• Binance ID / Email: `Coloca tu Pay ID o Email`\n\n"
+        "• Banco: `Banco venezolano de Crédito`\n"
+        "• Cédula/RIF: `34.564.906`\n"
+        "• Teléfono: `04146224858`\n\n"
+        "🟡 *Binance Pay / USDT o USDC*\n"
+        "• Binance ID / 218810386: ``\n\n"
         "📩 Envía el comprobante por este chat para activar tu acceso."
     )
     bot.reply_to(message, msg, parse_mode="Markdown")
