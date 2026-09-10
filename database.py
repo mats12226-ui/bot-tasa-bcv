@@ -1,10 +1,12 @@
 import sqlite3
+import os
+
 
 DB_NAME = "bot_bcv.db"
 
 def es_administrador(user_id):
     """Verifica si un ID de usuario pertenece a la lista de administradores."""
-    ADMINS = 8884313811 
+    ADMINS = os.getenv("TELEGRAM_ADMIN_ID")
     return user_id in ADMINS
 
 def init_db():

@@ -13,8 +13,8 @@ from database import es_administrador
 
 import database as db
 
-TOKEN = os.getenv("TELEGRAM_TOKEN", "TU_TOKEN_AQUI")
-ADMIN_ID = es_administrador("ADMINS")
+TOKEN = os.getenv("TELEGRAM_TOKEN")
+ADMIN_ID = os.getenv("TELEGRAM_ADMIN_ID")
 
 bot = telebot.TeleBot(TOKEN)
 app = Flask('')
