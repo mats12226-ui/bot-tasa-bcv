@@ -149,7 +149,7 @@ def procesar_respuesta_vip(call):
             bot.send_message(
                 cliente_id, 
                 "🎉 *¡Felicidades! Tu pago ha sido verificado.*\n\n"
-                "🌟 Ahora eres usuario **VIP**. Puedes utilizar la calculadora avanzada con recargos (`+igtf`, `+iva`, `+X%`) y recibirás alertas automáticas de tasas.",
+                "🌟 Ahora eres usuario **VIP Permamente**. Puedes utilizar la calculadora avanzada con recargos (`+igtf`, `+iva`, `+X%`) y recibirás alertas automáticas de tasas.",
                 parse_mode="Markdown"
             )
         except Exception:
@@ -168,8 +168,8 @@ def procesar_respuesta_vip(call):
         try:
             bot.send_message(
                 cliente_id, 
-                "⚠️ *Tu comprobante de pago no ha podido ser validado.*\n\n"
-                "Por favor, revisa que los datos del pago y la captura sean legibles e inténtalo de nuevo, o contacta al administrador.",
+                "⚠️ *Hubo un problema con la verificación de tu pago.*\n\n"
+                "Tu comprobante fue rechazado. Por favor, verifica que la captura sea legible, los datos sean correctos o intenta realizar el proceso nuevamente.",
                 parse_mode="Markdown"
             )
         except Exception:
@@ -203,6 +203,11 @@ def cmd_tasa(message):
 @bot.message_handler(commands=['dar_vip'])
 def cmd_dar_vip(message):
     db.registrar_o_actualizar_usuario(message.from_user.id, message.from_user.username, message.from_user.first_name)
+    
+    if message.from_user.id != ADMIN_ID:
+        bot.reply_to(message, "⚠️ No tienes permiso para usar este comando.")
+        return
+
     args = message.text.split()
     if len(args) < 2:
         bot.reply_to(message, "⚠️ Uso correcto: `/dar_vip <ID_o_Username>`", parse_mode="Markdown")
@@ -214,12 +219,31 @@ def cmd_dar_vip(message):
     if target_id:
         db.activar_premium(target_id, 1)
         bot.reply_to(message, f"✅ Estatus **VIP** asignado con éxito a `{param}`.", parse_mode="Markdown")
+        
+        try:
+            bot.send_message(
+                target_id, 
+                "🎉 *¡Felicidades! Tu cuenta ha sido actualizada a VIP Permamente.*\n\n"
+                "🌟 Ya tienes acceso a la calculadora avanzada (`+igtf`, `+iva`, `+X%`) y a las alertas automáticas de tasa.",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            bot.send_message(
+                message.chat.id, 
+                f"⚠️ Se activó el VIP a `{param}`, pero no se le pudo enviar el mensaje por privado.",
+                parse_mode="Markdown"
+            )
     else:
         bot.reply_to(message, f"❌ No se encontró al usuario `{param}` en la base de datos.", parse_mode="Markdown")
 
 @bot.message_handler(commands=['quitar_vip'])
 def cmd_quitar_vip(message):
     db.registrar_o_actualizar_usuario(message.from_user.id, message.from_user.username, message.from_user.first_name)
+    
+    if message.from_user.id != ADMIN_ID:
+        bot.reply_to(message, "⚠️ No tienes permiso para usar este comando.")
+        return
+
     args = message.text.split()
     if len(args) < 2:
         bot.reply_to(message, "⚠️ Uso correcto: `/quitar_vip <ID_o_Username>`", parse_mode="Markdown")
@@ -231,6 +255,16 @@ def cmd_quitar_vip(message):
     if target_id:
         db.activar_premium(target_id, 0)
         bot.reply_to(message, f"❌ Acceso **VIP** retirado a `{param}`.", parse_mode="Markdown")
+        
+        try:
+            bot.send_message(
+                target_id,
+                "ℹ️ *Tu suscripción VIP ha finalizado.*\n\n"
+                "Tu estado ha vuelto a usuario estándar. Si deseas renovar tu acceso, puedes consultar las opciones con /planes.",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
     else:
         bot.reply_to(message, f"❌ No se encontró al usuario `{param}` en la base de datos.", parse_mode="Markdown")
 
@@ -251,18 +285,29 @@ def cmd_stats(message):
 @bot.message_handler(commands=['planes'])
 def cmd_planes(message):
     db.registrar_o_actualizar_usuario(message.from_user.id, message.from_user.username, message.from_user.first_name)
+    tasa_usd, _ = obtener_tasas_bcv_directo()
+    
+    if tasa_usd:
+        monto_bs = 4.0 * tasa_usd
+        precio_texto = f"💵 *4.00 USD* / 🇻🇪 *{monto_bs:,.2f} Bs.* (a Tasa BCV)"
+    else:
+        precio_texto = "💵 *4.00 USD* (o en Bs. a Tasa Oficial BCV del día)"
+
     msg = (
-        "⭐ *PASE VIP VITALICIO ($5 USD)* ⭐\n\n"
-        "Accede a la Calculadora Avanzada para comercios y finanzas:\n"
-        "🧮 Ejemplo: `50 usd +igtf +iva +5%`\n\n"
+        "⭐ *MEMBRESÍA VIP PERMANENTE* ⭐\n\n"
+        "🔓 *Pago único y acceso de por vida.*\n"
+        f"💰 *Precio:* {precio_texto}\n\n"
+        "✨ *BENEFICIOS EXCLUSIVOS:*\n"
+        "• Alertas automáticas en tiempo real al actualizarse la tasa oficial.\n"
+        "• Uso ilimitado de la Calculadora Avanzada (`+igtf`, `+iva`, `+X%`).\n\n"
         "💳 *MÉTODOS DE PAGO:*\n\n"
         "📲 *Pago Móvil:*\n"
-        "• Banco: `Banco venezolano de Crédito`\n"
-        "• Cédula/RIF: `34.564.906`\n"
-        "• Teléfono: `04146224858`\n\n"
-        "🟡 *Binance Pay / USDT o USDC*\n"
-        "• Binance ID / 218810386: ``\n\n"
-        "📩 Envía el comprobante por este chat para activar tu acceso."
+        "• Banco: `Coloca tu Banco`\n"
+        "• Cédula/RIF: `Coloca tu Cédula/RIF`\n"
+        "• Teléfono: `Coloca tu Teléfono`\n\n"
+        "🟡 *Binance Pay / USDC o USDT:*\n"
+        "• Binance ID / Email: `gus12226@gmail.com`\n\n"
+        "📩 *Envía la captura del pago por este chat* y un administrador activará tu acceso."
     )
     bot.reply_to(message, msg, parse_mode="Markdown")
 
@@ -270,7 +315,7 @@ def cmd_planes(message):
 def cmd_vip(message):
     db.registrar_o_actualizar_usuario(message.from_user.id, message.from_user.username, message.from_user.first_name)
     if db.es_usuario_vip(message.from_user.id):
-        bot.reply_to(message, "🌟 *Estado: VIP Activo*\nTienes acceso a la Calculadora Avanzada y a Alertas Automáticas.", parse_mode="Markdown")
+        bot.reply_to(message, "🌟 *Estado: VIP Permanente Activo*\nTienes acceso a la Calculadora Avanzada y a Alertas Automáticas.", parse_mode="Markdown")
     else:
         bot.reply_to(message, "ℹ️ *Estado: Usuario Estándar*\nUsa /planes para adquirir tu acceso VIP.", parse_mode="Markdown")
 
