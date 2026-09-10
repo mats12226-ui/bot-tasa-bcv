@@ -30,10 +30,10 @@ def run_flask():
 def obtener_tasas_bcv_directo():
     url = "https://www.bcv.org.ve/"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     try:
-        response = requests.get(url, headers=headers, timeout=10, verify=False)
+        response = requests.get(url, headers=headers, timeout=12, verify=False)
         response.raise_for_status()
         
         soup = BeautifulSoup(response.content, "html.parser")
@@ -101,6 +101,7 @@ def cmd_start(message):
         message, 
         "👋 ¡Hola! Bienvenido al bot de tasas oficiales del BCV.\n\n"
         "• Usa /tasa para consultar la tasa oficial actual.\n"
+        "• Escribe un monto para convertir (ej: '50 usd', '100 eur', '500 bs').\n"
         "• Usa /planes para ver los beneficios de la membresía VIP ($5 USD Vitalicio).\n"
         "• Usa /vip para consultar el estado de tu suscripción."
     )
@@ -108,7 +109,7 @@ def cmd_start(message):
 @bot.message_handler(commands=['tasa'])
 def cmd_tasa(message):
     usd, eur = obtener_tasas_bcv_directo()
-    if usd:
+    if usd and eur:
         msg = (
             "🏛️ Tasas Oficiales del BCV\n\n"
             f"💵 USD: {usd} Bs.\n"
@@ -122,10 +123,10 @@ def cmd_tasa(message):
 def cmd_planes(message):
     msg = (
         "⭐ PASE VIP VITALICIO ($5 USD) ⭐\n\n"
-        "Obtén acceso permanente a las herramientas avanzadas del bot:\n\n"
-        "🧮 Calculadora Avanzada (Convertidor de USD, EUR, Bs, IGTF e IVA en texto directo).\n"
-        "🔔 Alertas Automáticas en tiempo real apenas el BCV actualice la tasa por la tarde.\n"
-        "⚡ Sin anuncios y con soporte directo.\n\n"
+        "Obtén acceso a los cálculos avanzados e impuestos:\n\n"
+        "🧮 Calculadora de Impuestos (Cálculo directo de IGTF 3% e IVA 16%).\n"
+        "🔔 Alertas Automáticas en tiempo real al actualizar la tasa del BCV.\n"
+        "⚡ Atención prioritaria y sin interrupciones.\n\n"
         "💳 Métodos de Pago: Pago Móvil, Binance, Zelle.\n"
         "📩 Para activar tu pase VIP, escribe al administrador."
     )
@@ -135,54 +136,9 @@ def cmd_planes(message):
 def cmd_vip(message):
     user_id = message.from_user.id
     if es_vip(user_id):
-        bot.reply_to(message, "🌟 ¡Eres un miembro VIP Vitalicio! Tienes acceso a la calculadora avanzada y alertas automáticas.")
+        bot.reply_to(message, "🌟 ¡Eres un miembro VIP Vitalicio! Tienes acceso a alertas automáticas y cálculo de impuestos.")
     else:
-        bot.reply_to(message, "ℹ️ No tienes una suscripción VIP activa. Usa /planes para obtener más información.")
-
-@bot.message_handler(commands=['probar_alertas'])
-def cmd_probar_alertas(message):
-    user_id = message.from_user.id
-    
-    if user_id != MI_TELEGRAM_ID:
-        bot.reply_to(message, "⛔ Este comando solo puede ser ejecutado por el administrador.")
-        return
-
-    vips = cargar_vips()
-    total = len(vips)
-
-    if total == 0:
-        bot.reply_to(message, "⚠️ No hay usuarios en vips.json para probar.")
-        return
-
-    usd, eur = obtener_tasas_bcv_directo()
-    if not usd:
-        bot.reply_to(message, "❌ Error al obtener tasas para la prueba.")
-        return
-
-    bot.reply_to(message, f"🔄 Enviando prueba de alerta a {total} usuario(s) VIP...")
-
-    mensaje_prueba = (
-        "🔔 [PRUEBA DE ALERTA VIP]\n\n"
-        "Simulación de actualización de tasa BCV:\n\n"
-        f"💵 USD: {usd} Bs.\n"
-        f"💶 EUR: {eur} Bs.\n\n"
-        "✨ Pase VIP Vitalicio Activo."
-    )
-
-    exitos, fallos = 0, 0
-    for vip_id in vips.keys():
-        try:
-            bot.send_message(int(vip_id), mensaje_prueba)
-            exitos += 1
-            time.sleep(0.05)
-        except Exception as e:
-            print(f"❌ Error en prueba para {vip_id}: {e}")
-            fallos += 1
-
-    bot.send_message(
-        MI_TELEGRAM_ID, 
-        f"✅ Prueba finalizada\n\nExitosos: {exitos}\nFallidos: {fallos}"
-    )
+        bot.reply_to(message, "ℹ️ No tienes una suscripción VIP activa. Usa /planes para más información.")
 
 @bot.message_handler(func=lambda message: True)
 def responder_texto_general(message):
@@ -192,17 +148,20 @@ def responder_texto_general(message):
     user_id = message.from_user.id
     texto = message.text.lower().strip()
 
+    # Buscar cualquier número en el mensaje
     match = re.search(r'(\d+(?:[.,]\d+)?)', texto)
     
     if match:
-        # Verificar si el usuario es VIP para usar la calculadora
-        if not es_vip(user_id):
+        es_calculo_avanzado = 'igtf' in texto or 'iva' in texto
+
+        # Si intenta usar IVA o IGTF y no es VIP, se bloquea la función avanzada
+        if es_calculo_avanzado and not es_vip(user_id):
             msg_bloqueo = (
-                "🔒 La Calculadora Avanzada (Convertidor, IGTF e IVA) es una función exclusiva VIP.\n\n"
+                "🔒 El cálculo automático de IVA (16%) e IGTF (3%) es una función VIP.\n\n"
                 "⭐ Con el Pase VIP Vitalicio ($5 USD) obtienes:\n"
-                "• Uso ilimitado de la calculadora en texto (ej: '50 usd', '100 iva', '50 igtf').\n"
-                "• Alertas automáticas al instante cada tarde al actualizar el BCV.\n\n"
-                "Usa /planes para ver los detalles de activación."
+                "• Cálculo automático de IVA e IGTF en texto directo.\n"
+                "• Alertas de cambio de tasa en tiempo real.\n\n"
+                "Usa /planes para más información."
             )
             bot.reply_to(message, msg_bloqueo)
             return
@@ -210,15 +169,15 @@ def responder_texto_general(message):
         usd_str, eur_str = obtener_tasas_bcv_directo()
         
         if not usd_str or not eur_str:
-            bot.reply_to(message, "❌ No se pudo obtener la tasa en este momento. Intenta más tarde con /tasa.")
+            bot.reply_to(message, "❌ No se pudo conectar con el BCV para realizar el cálculo. Intenta nuevamente en un momento.")
             return
 
         try:
             tasa_usd = float(usd_str)
             tasa_eur = float(eur_str)
             monto = float(match.group(1).replace(',', '.'))
-            
-            # 1. Calculo de IGTF (3%)
+
+            # 1. Cálculo de IGTF (Función VIP)
             if 'igtf' in texto:
                 if 'eur' in texto:
                     monto_bs = monto * tasa_eur
@@ -247,21 +206,12 @@ def responder_texto_general(message):
                         f"📊 Tasa Dólar BCV: {tasa_usd} Bs."
                     )
 
-            # 2. Calculo de IVA (16%)
+            # 2. Cálculo de IVA (Función VIP)
             elif 'iva' in texto:
                 iva_monto = monto * 0.16
                 total_con_iva = monto + iva_monto
                 
-                if 'usd' in texto or ('bs' not in texto and 'eur' not in texto):
-                    total_bs = total_con_iva * tasa_usd
-                    respuesta = (
-                        "🧾 Cálculo IVA (16%) - USD\n\n"
-                        f"🔹 Subtotal: {monto:,.2f} USD\n"
-                        f"🔹 IVA (16%): {iva_monto:,.2f} USD\n"
-                        f"🔹 TOTAL CON IVA: {total_con_iva:,.2f} USD ({total_bs:,.2f} Bs.)\n\n"
-                        f"📊 Tasa Dólar BCV: {tasa_usd} Bs."
-                    )
-                elif 'eur' in texto:
+                if 'eur' in texto:
                     total_bs = total_con_iva * tasa_eur
                     respuesta = (
                         "🧾 Cálculo IVA (16%) - EUR\n\n"
@@ -270,7 +220,7 @@ def responder_texto_general(message):
                         f"🔹 TOTAL CON IVA: {total_con_iva:,.2f} EUR ({total_bs:,.2f} Bs.)\n\n"
                         f"📊 Tasa Euro BCV: {tasa_eur} Bs."
                     )
-                else:
+                elif 'bs' in texto or 'bolivar' in texto or 'bolivares' in texto:
                     total_usd = total_con_iva / tasa_usd
                     respuesta = (
                         "🧾 Cálculo IVA (16%) - Bs.\n\n"
@@ -279,8 +229,17 @@ def responder_texto_general(message):
                         f"🔹 TOTAL CON IVA: {total_con_iva:,.2f} Bs. ({total_usd:,.2f} USD)\n\n"
                         f"📊 Tasa Dólar BCV: {tasa_usd} Bs."
                     )
+                else:
+                    total_bs = total_con_iva * tasa_usd
+                    respuesta = (
+                        "🧾 Cálculo IVA (16%) - USD\n\n"
+                        f"🔹 Subtotal: {monto:,.2f} USD\n"
+                        f"🔹 IVA (16%): {iva_monto:,.2f} USD\n"
+                        f"🔹 TOTAL CON IVA: {total_con_iva:,.2f} USD ({total_bs:,.2f} Bs.)\n\n"
+                        f"📊 Tasa Dólar BCV: {tasa_usd} Bs."
+                    )
 
-            # 3. Conversiones normales
+            # 3. Conversiones Normales (Disponibles para todos los usuarios)
             elif 'eur' in texto or 'euro' in texto or 'euros' in texto:
                 total_bs = monto * tasa_eur
                 respuesta = (
@@ -307,16 +266,19 @@ def responder_texto_general(message):
                 
             bot.reply_to(message, respuesta)
         except Exception as e:
-            print(f"Error en calculo: {e}")
-            bot.reply_to(message, "❌ Ocurrió un error al hacer el cálculo.")
+            print(f"Error en cálculo: {e}")
+            bot.reply_to(message, "❌ Ocurrió un error al procesar el monto. Asegúrate de ingresar un número válido.")
     else:
         usd_str, eur_str = obtener_tasas_bcv_directo()
-        msg = (
-            "🏛️ Tasas Oficiales BCV\n\n"
-            f"💵 USD: {usd_str} Bs.\n"
-            f"💶 EUR: {eur_str} Bs.\n\n"
-            "💡 Usa /planes para conocer la membresía VIP y activar la Calculadora Avanzada."
-        )
+        if usd_str and eur_str:
+            msg = (
+                "🏛️ Tasas Oficiales BCV\n\n"
+                f"💵 USD: {usd_str} Bs.\n"
+                f"💶 EUR: {eur_str} Bs.\n\n"
+                "💡 Para convertir montos escribe por ejemplo: '50 usd', '20 euro' o '100 bs'."
+            )
+        else:
+            msg = "❌ No se pudo conectar con la página del BCV en este momento."
         bot.reply_to(message, msg)
 
 if __name__ == "__main__":
